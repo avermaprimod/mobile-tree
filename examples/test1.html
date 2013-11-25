@@ -1,0 +1,245 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+        <title>SlickGrid example 5: Collapsing</title>
+        <link rel="stylesheet" href="../slick.grid.css" type="text/css"/>
+        <!--link rel="stylesheet" href="../css/smoothness/jquery-ui-1.8.16.custom.css" type="text/css"/-->
+        <!--link rel="stylesheet" href="examples.css" type="text/css"/-->
+        <link rel="stylesheet" href="example-bootstrap.css" type="text/css"/>
+        <link rel="stylesheet" href="bootstrap.css" type="text/css"/>
+        <style>
+            .cell-title {
+                font-weight: bold;
+            }
+
+            .cell-effort-driven {
+                text-align: center;
+            }
+
+            .toggle {
+                height: 9px;
+                width: 9px;
+                display: inline-block;
+            }
+
+            .toggle.expand {
+                background: url(../images/expand.gif) no-repeat center center;
+            }
+
+            .toggle.collapse {
+                background: url(../images/collapse.gif) no-repeat center center;
+            }
+
+        </style>
+    </head>
+    <body>
+        <div id="myGrid" class="grid"></div>
+
+
+        <script src="../lib/firebugx.js"></script>
+
+        <script src="../lib/jquery-1.7.min.js"></script>
+        <script src="../lib/jquery-ui-1.8.16.custom.min.js"></script>
+        <script src="../lib/jquery.event.drag-2.2.js"></script>
+
+        <script src="../slick.core.js"></script>
+        <script src="../slick.formatters.js"></script>
+        <script src="../slick.editors.js"></script>
+        <script src="../slick.grid.js"></script>
+        <script src="../slick.dataview.js"></script>
+        <script src="bootstrap-slickgrid.js"></script>
+
+
+        <script>
+            function requiredFieldValidator(value) {
+                if (value == null || value == undefined || !value.length) {
+                    return {valid: false, msg: "This is a required field"};
+                } else {
+                    return {valid: true, msg: null};
+                }
+            }
+
+
+            var TaskNameFormatter = function(row, cell, value, columnDef, dataContext) {
+                value = value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                var spacer = "<span style='display:inline-block;height:1px;width:" + (15 * dataContext["indent"]) + "px'></span>";
+                var idx = dataView.getIdxById(dataContext.id);
+                if ((data[idx].rgt - data[idx].lft) > 1) {
+                    if (dataContext._collapsed) {
+                        return spacer + " <span class='toggle expand'></span>&nbsp;" + value;
+                    } else {
+                        return spacer + " <span class='toggle collapse'></span>&nbsp;" + value;
+                    }
+                } else {
+                    return spacer + " <span class='toggle'></span>&nbsp;" + value;
+                }
+            };
+
+            var dataView;
+            var grid;
+            var data = [];
+            var columns = [
+                {id: "name", name: "Name", field: "name", width: 300, cssClass: "cell-title", formatter: TaskNameFormatter},
+                {id: "ajax", name: "Ajax", field: "ajax", minWidth: 150},
+                {id: "full_name", name: "FullName", field: "full_name", minWidth: 150},
+                {id: "is_active", name: "IsActive", field: "is_active", minWidth: 150},
+                {id: "type", name: "Type", field: "type", minWidth: 150}
+
+            ];
+
+            var options = {
+            };
+
+            var percentCompleteThreshold = 0;
+            var searchString = "";
+
+
+            function prettyfyKeys(rows) {
+                var length = rows.length;
+                if (length > 0) {
+                    var row = {};
+                    $.each(rows[0], function(i, v) {
+                        row[i] = i.replace('menus.', '');
+                    });
+                }
+                var records = [];
+                for (recordNo = 0; recordNo < length; recordNo++) {
+                    records[recordNo] = {};
+                    $.each(rows[recordNo], function(i, v) {
+                        records[recordNo][row[i]] = v;
+                    });
+                }
+                return records;
+            }
+            function transformData(records, parent, indent) {
+                for (i = 0; i < records.length; i++) {
+
+                    records[i]["parent"] = parent;
+                    records[i]["_collapsed"] = "true";
+                    records[i]["indent"] = indent;
+
+                }
+                return records;
+            }
+
+
+            $(function() {
+                $.ajax({
+                    url: "https://app1.maaxframe.com/uat/access_controls/users.json",
+                    type: "POST",
+                    data: {"_method": "login", "data[users][user_name]": "admin", "data[users][user_password]": "sc4JK4GeWiXr"},
+                    contentType: "application/x-www-form-urlencoded",
+                    success: function(response) {
+                        console.log(response);
+                    }
+                });
+                $.ajax('https://app1.maaxframe.com/uat/development_base/menus.json', {
+                    type: 'GET',
+                    data: {"current_listview": "52611fb5-a93c-4fe3-8d3e-1d890acef1b9"},
+                    contentType: 'application/x-www-form-urlencoded',
+                    success: function(response) {
+                        var records = prettyfyKeys(response['paginate']['data']);
+                        records = transformData(records, null, 0);// For root elements parent is null and indent is 0
+                        console.log(records);
+                        data = records;
+                        // initialize the model
+                        dataView = new Slick.Data.DataView();
+                        dataView.beginUpdate();
+                        dataView.setItems(data);
+
+                        dataView.endUpdate();
+
+
+                        // initialize the grid
+                        grid = new Slick.Grid("#myGrid", dataView, columns, options);
+
+                        grid.onCellChange.subscribe(function(e, args) {
+                            dataView.updateItem(args.item.id, args.item);
+                        });
+
+
+
+                        grid.onClick.subscribe(function(e, args) {
+                            if ($(e.target).hasClass("toggle")) {
+                                var item = dataView.getItem(args.row);
+                                if (item) {
+                                    if (!item._collapsed) {
+                                        item._collapsed = true;
+                                        index = dataView.getIdxById(item.id);
+                                        length = (item.rgt - item.lft) / 2;
+                                        dataView.beginUpdate();
+                                        //for (i = index + 1; i <= length + index; i++) {
+                                        i = index + 1;
+                                        while (1) {
+                                            //item1=dataView.getItem(i);
+                                            //var pid=item1.parent;
+                                            if ((dataView.getItem(i)) != undefined && dataView.getItem(i).parent == index) {
+                                                dataView.deleteItem(dataView.getItem(i).id);
+                                            }
+                                            else {
+                                                break;
+                                            }
+                                            i++;
+                                        }
+                                        dataView.endUpdate();
+                                        dataView.updateItem(item.id, item);
+                                        e.stopImmediatePropagation();
+
+                                    } else {
+                                        item._collapsed = false;
+                                        $.ajax('https://app1.maaxframe.com/uat/development_base/menus.json', {
+                                            type: 'GET',
+                                            data: {"current_listview": "52611fb5-a93c-4fe3-8d3e-1d890acef1b9", 'q': {"order": ["menus.lft  ASC"], "name": "All", "category_id": "1", "category_id_model": "listview_categories", "__category_id": "Corporate Filters [1]", "controller": "development_base/menus", "render_as": "tree", "is_default": "1", "is_public": "1", "parent_id_model": "parent_listview", "owned_by_model": "users", "primary_acl_group_model": "groups", "created_by": "1", "method": "tree", "child_listview": null, "description": "", "page": 1, "where": [{"menus.parent_id": item.id}], "reset": 1, "active_level": 1}},
+                                            contentType: 'application/x-www-form-urlencoded',
+                                            success: function(resp) {
+                                                var index = dataView.getIdxById(item.id);
+                                                var records = prettyfyKeys(resp['paginate']['data']);
+                                                records = transformData(records, index, item.indent + 1);
+                                                console.log(records);
+                                                dataView.beginUpdate();
+                                                for (i = 0; i < records.length; i++) {
+                                                    dataView.insertItem(index + 1 + i, records[i]);
+                                                }
+                                                dataView.endUpdate();
+                                                dataView.updateItem(item.id, item);
+                                                e.stopImmediatePropagation();
+                                            }
+                                        });
+
+
+                                    }
+
+
+
+                                    //dataView.insertItem(1, {'id': 'l6', 'name': 'TypeScript','type':'test', 'lft':'2','rgt':'3','ajax':'1','is_active':'0','indent':'1','parent':'0','_collapse':'true'});
+                                }
+
+                            }
+                        });
+
+
+                        // wire up model events to drive the grid
+                        dataView.onRowCountChanged.subscribe(function(e, args) {
+                            grid.updateRowCount();
+                            grid.render();
+                        });
+
+                        dataView.onRowsChanged.subscribe(function(e, args) {
+                            grid.invalidateRows(args.rows);
+                            grid.render();
+                        });
+
+
+                    }
+                });
+
+
+
+
+
+
+            });
+        </script>
+    </body>
+</html>
