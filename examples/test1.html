@@ -122,7 +122,24 @@
                 }
                 return records;
             }
-
+            function mapParent() {
+                 dataView.beginUpdate();
+                for (i = 0; i < dataView.getLength(); i++) {
+                    if (dataView.getItem(i).parent_id != "") {
+                        for (j = 0; j < dataView.getLength(); j++) {
+                            item_i=dataView.getItem(i);
+                            item_j=dataView.getItem(j);
+                            i1=item_i.parent_id;
+                            i2=item_j.id;
+                            if( i1== i2){
+                                dataView.getItem(i).parent=j;
+                                break;
+                            }
+                        }
+                    }
+                }
+                 dataView.endUpdate();
+            }
 
             $(function() {
                 $.ajax({
@@ -166,14 +183,14 @@
                                 if (item) {
                                     if (!item._collapsed) {
                                         item._collapsed = true;
+                                        mapParent();
                                         index = dataView.getIdxById(item.id);
-                                        length = (item.rgt - item.lft) / 2;
-                                        dataView.beginUpdate();
-                                        //for (i = index + 1; i <= length + index; i++) {
+
                                         i = index + 1;
+                                        dataView.beginUpdate();
                                         while (1) {
-                                            //item1=dataView.getItem(i);
-                                            //var pid=item1.parent;
+                                            //item1 = dataView.getItem(i);
+                                            //var pid = item1.parent;
                                             if ((dataView.getItem(i)) != undefined && dataView.getItem(i).parent == index) {
                                                 dataView.deleteItem(dataView.getItem(i).id);
                                             }
@@ -183,7 +200,9 @@
                                             i++;
                                         }
                                         dataView.endUpdate();
-                                        dataView.updateItem(item.id, item);
+                                        grid.invalidate();
+                                        grid.render();
+                                        //dataView.updateItem(item.id, item);
                                         e.stopImmediatePropagation();
 
                                     } else {
@@ -201,6 +220,7 @@
                                                 for (i = 0; i < records.length; i++) {
                                                     dataView.insertItem(index + 1 + i, records[i]);
                                                 }
+                                                
                                                 dataView.endUpdate();
                                                 dataView.updateItem(item.id, item);
                                                 e.stopImmediatePropagation();
@@ -210,9 +230,6 @@
 
                                     }
 
-
-
-                                    //dataView.insertItem(1, {'id': 'l6', 'name': 'TypeScript','type':'test', 'lft':'2','rgt':'3','ajax':'1','is_active':'0','indent':'1','parent':'0','_collapse':'true'});
                                 }
 
                             }
