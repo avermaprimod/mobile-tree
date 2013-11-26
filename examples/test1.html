@@ -61,7 +61,7 @@
             }
 
 
-            var TaskNameFormatter = function(row, cell, value, columnDef, dataContext) {
+            var TreeFormatter = function(row, cell, value, columnDef, dataContext) {
                 value = value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
                 var spacer = "<span style='display:inline-block;height:1px;width:" + (15 * dataContext["indent"]) + "px'></span>";
                 var idx = dataView.getIdxById(dataContext.id);
@@ -79,20 +79,8 @@
             var dataView;
             var grid;
             var data = [];
-            var columns = [
-                {id: "name", name: "Name", field: "name", width: 300, cssClass: "cell-title", formatter: TaskNameFormatter},
-                {id: "ajax", name: "Ajax", field: "ajax", minWidth: 150},
-                {id: "full_name", name: "FullName", field: "full_name", minWidth: 150},
-                {id: "is_active", name: "IsActive", field: "is_active", minWidth: 150},
-                {id: "type", name: "Type", field: "type", minWidth: 150}
-
-            ];
-
-            var options = {
-            };
-
-            var percentCompleteThreshold = 0;
-            var searchString = "";
+            var columns = [];
+          
 
 
             function prettyfyKeys(rows) {
@@ -123,22 +111,22 @@
                 return records;
             }
             function mapParent() {
-                 dataView.beginUpdate();
+                dataView.beginUpdate();
                 for (i = 0; i < dataView.getLength(); i++) {
                     if (dataView.getItem(i).parent_id != "") {
                         for (j = 0; j < dataView.getLength(); j++) {
-                            item_i=dataView.getItem(i);
-                            item_j=dataView.getItem(j);
-                            i1=item_i.parent_id;
-                            i2=item_j.id;
-                            if( i1== i2){
-                                dataView.getItem(i).parent=j;
+                            item_i = dataView.getItem(i);
+                            item_j = dataView.getItem(j);
+                            i1 = item_i.parent_id;
+                            i2 = item_j.id;
+                            if (i1 == i2) {
+                                dataView.getItem(i).parent = j;
                                 break;
                             }
                         }
                     }
                 }
-                 dataView.endUpdate();
+                dataView.endUpdate();
             }
 
             $(function() {
@@ -156,11 +144,28 @@
                     data: {"current_listview": "52611fb5-a93c-4fe3-8d3e-1d890acef1b9"},
                     contentType: 'application/x-www-form-urlencoded',
                     success: function(response) {
+                        console.log(response);
+                        var header = {};
+                        for (i = 0; i < response['paginate']['header'].length; i++) {
+                            header = {};
+                            if (response['paginate']['header'][i].visible == 1) {
+                                console.log(response['paginate']['header'][i])
+                                header["id"] = response['paginate']['header'][i].fname.split('.')[1];
+                                header["name"] = response['paginate']['header'][i].name.split('.')[1];
+                                header["field"] = response['paginate']['header'][i].fname.split('.')[1];
+                                header["minWidth"] = 150;
+                                columns.push(header);
+                            }
+
+                        }
+                        columns[0]["cssClass"]="cell-title";
+                        columns[0]["formatter"]=TreeFormatter;  
+                        columns[0]["minWidth"]=200;
                         var records = prettyfyKeys(response['paginate']['data']);
                         records = transformData(records, null, 0);// For root elements parent is null and indent is 0
                         console.log(records);
                         data = records;
-                        // initialize the model
+
                         dataView = new Slick.Data.DataView();
                         dataView.beginUpdate();
                         dataView.setItems(data);
@@ -169,7 +174,7 @@
 
 
                         // initialize the grid
-                        grid = new Slick.Grid("#myGrid", dataView, columns, options);
+                        grid = new Slick.Grid("#myGrid", dataView, columns);
 
                         grid.onCellChange.subscribe(function(e, args) {
                             dataView.updateItem(args.item.id, args.item);
@@ -189,8 +194,8 @@
                                         i = index + 1;
                                         dataView.beginUpdate();
                                         while (1) {
-                                           // item1 = dataView.getItem(i);
-                                           // var pid = item1.parent;
+                                            // item1 = dataView.getItem(i);
+                                            // var pid = item1.parent;
                                             if ((dataView.getItem(i)) != undefined && parseInt(dataView.getItem(i).rgt) < parseInt(item.rgt)) {
                                                 dataView.deleteItem(dataView.getItem(i).id);
                                             }
@@ -220,7 +225,7 @@
                                                 for (i = 0; i < records.length; i++) {
                                                     dataView.insertItem(index + 1 + i, records[i]);
                                                 }
-                                                
+
                                                 dataView.endUpdate();
                                                 dataView.updateItem(item.id, item);
                                                 e.stopImmediatePropagation();
