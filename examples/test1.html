@@ -65,7 +65,7 @@
                 value = value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
                 var spacer = "<span style='display:inline-block;height:1px;width:" + (15 * dataContext["indent"]) + "px'></span>";
                 var idx = dataView.getIdxById(dataContext.id);
-                if ((data[idx].rgt - data[idx].lft) > 1) {
+                if (parseInt((data[idx].rgt) - parseInt(data[idx].lft)) > 1) {
                     if (dataContext._collapsed) {
                         return spacer + " <span class='toggle expand'></span>&nbsp;" + value;
                     } else {
@@ -189,9 +189,9 @@
                                         i = index + 1;
                                         dataView.beginUpdate();
                                         while (1) {
-                                            //item1 = dataView.getItem(i);
-                                            //var pid = item1.parent;
-                                            if ((dataView.getItem(i)) != undefined && dataView.getItem(i).parent == index) {
+                                           // item1 = dataView.getItem(i);
+                                           // var pid = item1.parent;
+                                            if ((dataView.getItem(i)) != undefined && parseInt(dataView.getItem(i).rgt) < parseInt(item.rgt)) {
                                                 dataView.deleteItem(dataView.getItem(i).id);
                                             }
                                             else {
