@@ -88,7 +88,7 @@
                 if (length > 0) {
                     var row = {};
                     $.each(rows[0], function(i, v) {
-                        row[i] = i.replace('menus.', '');
+                        row[i] = i.split('.')[1];
                     });
                 }
                 var records = [];
