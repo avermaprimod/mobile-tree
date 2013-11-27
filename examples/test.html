@@ -61,11 +61,11 @@
             }
 
 
-            var TaskNameFormatter = function(row, cell, value, columnDef, dataContext) {
+            var TreeFormatter = function(row, cell, value, columnDef, dataContext) {
                 value = value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
                 var spacer = "<span style='display:inline-block;height:1px;width:" + (15 * dataContext["indent"]) + "px'></span>";
                 var idx = dataView.getIdxById(dataContext.id);
-                if (data[idx + 1] && data[idx + 1].indent > data[idx].indent) {
+                if (parseInt((data[idx].rgt) - parseInt(data[idx].lft)) > 1) {
                     if (dataContext._collapsed) {
                         return spacer + " <span class='toggle expand'></span>&nbsp;" + value;
                     } else {
@@ -79,213 +79,195 @@
             var dataView;
             var grid;
             var data = [];
-            var columns = [
-                {id: "title", name: "Title", field: "title", width: 300, cssClass: "cell-title", formatter: TaskNameFormatter},
-                {id: "duration", name: "Duration", field: "duration", minWidth: 150},
-                {id: "start", name: "Start", field: "start", minWidth: 150},
-                {id: "finish", name: "Finish", field: "finish", minWidth: 150}
+            var columns = [];
 
-            ];
 
-            var options = {
-            };
 
-            var percentCompleteThreshold = 0;
-            var searchString = "";
-
-            function myFilter(item) {
-                if (item["percentComplete"] < percentCompleteThreshold) {
-                    return false;
-                }
-
-                if (searchString != "" && item["title"].indexOf(searchString) == -1) {
-                    return false;
-                }
-
-                if (item.parent != null) {
-                    var parent = data[item.parent];
-
-                    while (parent) {
-                        if (parent._collapsed || (parent["percentComplete"] < percentCompleteThreshold) || (searchString != "" && parent["title"].indexOf(searchString) == -1)) {
-                            return false;
+            function prettyfyKeys(rows) {
+                var length = rows.length;
+                if (length > 0) {
+                    var row = {};
+                    $.each(rows[0], function(i, v) {
+                        if ((i.indexOf('.lft') > -1) || (i.indexOf('.rgt') > -1) || (i.indexOf('.parent_id') > -1) || (i.indexOf('.id')>-1)) {
+                            row[i] = i.split('.')[1];
                         }
+                        else{
+                            row[i]=i;
+                        }
+                    });
+                }
+                var records = [];
+                for (recordNo = 0; recordNo < length; recordNo++) {
+                    records[recordNo] = {};
+                    $.each(rows[recordNo], function(i, v) {
+                        records[recordNo][row[i]] = v;
+                    });
+                }
+                return records;
 
-                        parent = data[parent.parent];
+            }
+            function transformData(records, parent, indent) {
+                for (i = 0; i < records.length; i++) {
+
+                    records[i]["parent"] = parent;
+                    records[i]["_collapsed"] = "true";
+                    records[i]["indent"] = indent;
+
+                }
+                return records;
+            }
+            function mapParent() {
+                dataView.beginUpdate();
+                for (i = 0; i < dataView.getLength(); i++) {
+                    if (dataView.getItem(i).parent_id != "") {
+                        for (j = 0; j < dataView.getLength(); j++) {
+                            item_i = dataView.getItem(i);
+                            item_j = dataView.getItem(j);
+                            i1 = item_i.parent_id;
+                            i2 = item_j.id;
+                            if (i1 == i2) {
+                                dataView.getItem(i).parent = j;
+                                break;
+                            }
+                        }
                     }
                 }
-
-                return true;
-            }
-
-            function percentCompleteSort(a, b) {
-                return a["percentComplete"] - b["percentComplete"];
+                dataView.endUpdate();
             }
 
             $(function() {
                 $.ajax({
-                    url: "http://uat.maaxframe.com/access_controls/users.json",
+                    url: "https://app1.maaxframe.com/uat/access_controls/users.json",
                     type: "POST",
-                    data: {"_method": "login", "data[users][user_name]": "timlee", "data[users][user_password]": "timlee"},
+                    data: {"_method": "login", "data[users][user_name]": "admin", "data[users][user_password]": "sc4JK4GeWiXr"},
                     contentType: "application/x-www-form-urlencoded",
                     success: function(response) {
-                        console.log(response)
+                        console.log(response);
                     }
                 });
-                var treedata = [];
-
-                $.ajax('http://uat.maaxframe.com/development_base/menus.json', {
+                $.ajax('https://app1.maaxframe.com/uat/accounting/accounts.json', {
                     type: 'GET',
-                    data: {"current_listview": "52611fb5-a93c-4fe3-8d3e-1d890acef1b9", "_method": "index", "q": {"limit": "0", "fetch_first_level": "0", "where": [{"menus.lft >": "0", "menus.rgt <": "20000000"}]}},
+                    data: {"current_listview": "52611fb5-c60c-42af-b204-1d890acef1b9"},
                     contentType: 'application/x-www-form-urlencoded',
                     success: function(response) {
-                        console.log(response['paginate']['data'])
-                        var rows = response['paginate']['data'];
-                        console.log(rows)
-                        var length = rows.length;
-                        if (length > 0) {
-                            var row = {};
-                            $.each(rows[0], function(i, v) {
-                                console.log(i)
-                                row[i] = i.replace('menus.', '');
-                            });
-                        }
-                        var records = [];
-                        for (recordNo = 0; recordNo < length; recordNo++) {
-                            records[recordNo] = {};
-                            $.each(rows[recordNo], function(i, v) {
-                                records[recordNo][row[i]] = v;
-                            });
-                        }
-                        console.log(records);
-
-                    }
-                });
-
-
-
-                var indent = 0;
-                var parents = [];
-
-                // prepare the data
-                for (var i = 0; i < 1000; i++) {
-                    var d = (data[i] = {});
-                    var parent;
-
-                    if (Math.random() > 0.8 && i > 0) {
-                        indent++;
-                        parents.push(i - 1);
-                    } else if (Math.random() < 0.3 && indent > 0) {
-                        indent--;
-                        parents.pop();
-                    }
-
-                    if (parents.length > 0) {
-                        parent = parents[parents.length - 1];
-                    } else {
-                        parent = null;
-                    }
-                    d["_collapsed"] = true;
-                    d["id"] = "id_" + i;
-                    d["indent"] = indent;
-                    d["parent"] = parent;
-                    d["title"] = "Task " + i;
-                    d["duration"] = "5 days";
-
-                    d["start"] = "01/01/2009";
-                    d["finish"] = "01/05/2009";
-
-                }
-
-
-                // initialize the model
-                dataView = new Slick.Data.DataView({inlineFilters: true});
-                dataView.beginUpdate();
-                console.log(data);
-                dataView.setItems(data);
-                dataView.setFilter(myFilter);
-                dataView.endUpdate();
-
-
-                // initialize the grid
-                grid = new Slick.Grid("#myGrid", dataView, columns, options);
-
-                grid.onCellChange.subscribe(function(e, args) {
-                    dataView.updateItem(args.item.id, args.item);
-                });
-
-                grid.onAddNewRow.subscribe(function(e, args) {
-                    var item = {
-                        "id": "new_" + (Math.round(Math.random() * 10000)),
-                        "indent": 0,
-                        "title": "New task",
-                        "duration": "1 day",
-                        "percentComplete": 0,
-                        "start": "01/01/2009",
-                        "finish": "01/01/2009",
-                        "effortDriven": false};
-                    $.extend(item, args.item);
-                    dataView.addItem(item);
-                });
-
-                grid.onClick.subscribe(function(e, args) {
-                    if ($(e.target).hasClass("toggle")) {
-                        var item = dataView.getItem(args.row);
-                        if (item) {
-                            if (!item._collapsed) {
-                                item._collapsed = true;
-                            } else {
-                                item._collapsed = false;
+                        console.log(response);
+                        var header = {};
+                        for (i = 0; i < response['paginate']['header'].length; i++) {
+                            header = {};
+                            if (response['paginate']['header'][i].visible == 1) {
+                                console.log(response['paginate']['header'][i]);
+                                header["id"] = response['paginate']['header'][i].fname;
+                                header["name"] = response['paginate']['header'][i].name;
+                                header["field"] = response['paginate']['header'][i].fname;
+                                header["minWidth"] = 150;
+                                columns.push(header);
                             }
 
-                            dataView.updateItem(item.id, item);
                         }
-                        e.stopImmediatePropagation();
+                        columns[0]["cssClass"] = "cell-title";
+                        columns[0]["formatter"] = TreeFormatter;
+                        columns[0]["minWidth"] = 200;
+                        var records = prettyfyKeys(response['paginate']['data']);
+                        records = transformData(records, null, 0);// For root elements parent is null and indent is 0
+                        console.log(records);
+                        data = records;
+
+                        dataView = new Slick.Data.DataView();
+                        dataView.beginUpdate();
+                        dataView.setItems(data);
+
+                        dataView.endUpdate();
+
+
+                        // initialize the grid
+                        grid = new Slick.Grid("#myGrid", dataView, columns);
+
+                        grid.onCellChange.subscribe(function(e, args) {
+                            dataView.updateItem(args.item.id, args.item);
+                        });
+
+
+
+                        grid.onClick.subscribe(function(e, args) {
+                            if ($(e.target).hasClass("toggle")) {
+                                var item = dataView.getItem(args.row);
+                                if (item) {
+                                    if (!item._collapsed) {
+                                        item._collapsed = true;
+                                        mapParent();
+                                        index = dataView.getIdxById(item.id);
+
+                                        i = index + 1;
+                                        dataView.beginUpdate();
+                                        while (1) {
+                                            // item1 = dataView.getItem(i);
+                                            // var pid = item1.parent;
+                                            if ((dataView.getItem(i)) != undefined && parseInt(dataView.getItem(i).rgt) < parseInt(item.rgt)) {
+                                                dataView.deleteItem(dataView.getItem(i).id);
+                                            }
+                                            else {
+                                                break;
+                                            }
+                                            i++;
+                                        }
+                                        dataView.endUpdate();
+                                        grid.invalidate();
+                                        grid.render();
+                                        //dataView.updateItem(item.id, item);
+                                        e.stopImmediatePropagation();
+
+                                    } else {
+                                        item._collapsed = false;
+                                        $.ajax('https://app1.maaxframe.com/uat/accounting/accounts.json', {
+                                            type: 'GET',
+                                            data: {"current_listview": "52611fb5-c60c-42af-b204-1d890acef1b9", 'q': {"actions":{"add":{"name":"add","class":"ajax-popup","presentation":"\\module\\accounting\\helper\\presentation\\accounts::add_action"},"edit":{"name":"edit","class":"ajax-popup"},"delete":{"name":"delete","class":"ajax-popup"},"up":{"name":"up","class":"ajax-popup"},"down":{"name":"down","class":"ajax-popup"},"view":{"name":"view","class":"ajax-popup"}},"group":["accounts.id"],"order":[],"name":"All","category_id":"12","category_id_model":"listview_categories","__category_id":"System View","controller":"accounting/accounts","render_as":"tree","is_default":"1","parent_id_model":"parent_listview","sequence":"3","primary_acl_group_model":"groups","owned_by":"1","owned_by_model":"users","__owned_by":"System Admin","method":"tree","child_listview":null,"filter_deleted_records":0,"description":"","page":1,"where":[{"accounts.parent_id":item.id}],"reset":1,"active_level":1}},
+                                            contentType: 'application/x-www-form-urlencoded',
+                                            success: function(resp) {
+                                                var index = dataView.getIdxById(item.id);
+                                                var records = prettyfyKeys(resp['paginate']['data']);
+                                                records = transformData(records, index, item.indent + 1);
+                                                console.log(records);
+                                                dataView.beginUpdate();
+                                                for (i = 0; i < records.length; i++) {
+                                                    dataView.insertItem(index + 1 + i, records[i]);
+                                                }
+
+                                                dataView.endUpdate();
+                                                dataView.updateItem(item.id, item);
+                                                e.stopImmediatePropagation();
+                                            }
+                                        });
+
+
+                                    }
+
+                                }
+
+                            }
+                        });
+
+
+                        // wire up model events to drive the grid
+                        dataView.onRowCountChanged.subscribe(function(e, args) {
+                            grid.updateRowCount();
+                            grid.render();
+                        });
+
+                        dataView.onRowsChanged.subscribe(function(e, args) {
+                            grid.invalidateRows(args.rows);
+                            grid.render();
+                        });
+
+
                     }
                 });
 
 
-                // wire up model events to drive the grid
-                dataView.onRowCountChanged.subscribe(function(e, args) {
-                    grid.updateRowCount();
-                    grid.render();
-                });
-
-                dataView.onRowsChanged.subscribe(function(e, args) {
-                    grid.invalidateRows(args.rows);
-                    grid.render();
-                });
 
 
-                var h_runfilters = null;
-
-                // wire up the slider to apply the filter to the model
-                $("#pcSlider").slider({
-                    "range": "min",
-                    "slide": function(event, ui) {
-                        Slick.GlobalEditorLock.cancelCurrentEdit();
-
-                        if (percentCompleteThreshold != ui.value) {
-                            window.clearTimeout(h_runfilters);
-                            h_runfilters = window.setTimeout(dataView.refresh, 10);
-                            percentCompleteThreshold = ui.value;
-                        }
-                    }
-                });
 
 
-                // wire up the search textbox to apply the filter to the model
-                $("#txtSearch").keyup(function(e) {
-                    Slick.GlobalEditorLock.cancelCurrentEdit();
-
-                    // clear on Esc
-                    if (e.which == 27) {
-                        this.value = "";
-                    }
-
-                    searchString = this.value;
-                    dataView.refresh();
-                })
-            })
+            });
         </script>
     </body>
 </html>
