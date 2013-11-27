@@ -83,12 +83,17 @@
           
 
 
-            function prettyfyKeys(rows) {
+             function prettyfyKeys(rows) {
                 var length = rows.length;
                 if (length > 0) {
                     var row = {};
                     $.each(rows[0], function(i, v) {
-                        row[i] = i.split('.')[1];
+                        if ((i.indexOf('.lft') > -1) || (i.indexOf('.rgt') > -1) || (i.indexOf('.parent_id') > -1) || (i.indexOf('.id')>-1)) {
+                            row[i] = i.split('.')[1];
+                        }
+                        else{
+                            row[i]=i;
+                        }
                     });
                 }
                 var records = [];
@@ -99,6 +104,7 @@
                     });
                 }
                 return records;
+
             }
             function transformData(records, parent, indent) {
                 for (i = 0; i < records.length; i++) {
@@ -150,9 +156,9 @@
                             header = {};
                             if (response['paginate']['header'][i].visible == 1) {
                                 console.log(response['paginate']['header'][i])
-                                header["id"] = response['paginate']['header'][i].fname.split('.')[1];
-                                header["name"] = response['paginate']['header'][i].name.split('.')[1];
-                                header["field"] = response['paginate']['header'][i].fname.split('.')[1];
+                                header["id"] = response['paginate']['header'][i].fname;
+                                header["name"] = response['paginate']['header'][i].name;
+                                header["field"] = response['paginate']['header'][i].fname;
                                 header["minWidth"] = 150;
                                 columns.push(header);
                             }
